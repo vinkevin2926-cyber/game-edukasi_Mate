@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math & Science Quest</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+</style>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-purple-900 to-indigo-900 text-white flex items-center justify-center p-4">
+
+<div id="app" class="w-full max-w-xl"></div>
+
+<!-- AUDIO -->
+<audio id="bgm" loop src="https://cdn.pixabay.com/audio/2022/03/15/audio_5c4d8a9c59.mp3"></audio>
+<audio id="sfx-ok" src="https://cdn.pixabay.com/audio/2022/03/15/audio_2c8b60c6b7.mp3"></audio>
+<audio id="sfx-no" src="https://cdn.pixabay.com/audio/2022/03/15/audio_c6cc8c5c9a.mp3"></audio>
+<audio id="sfx-time" src="https://cdn.pixabay.com/audio/2022/03/15/audio_9e4c95df65.mp3"></audio>
+
+<script>
+/* ================= STATE ================= */
+let screen = "home";
+let name = "";
+let level = "7";
+let mode = "MTK";
+
+let questions = [];
+let index = 0;
+
+let score = 0;
+let correct = 0;
+let wrong = 0;
+
+let time = 10;
+let timer = null;
+
+/* ================= AUDIO ================= */
+const bgm = document.getElementById("bgm");
+const sfxOk = document.getElementById("sfx-ok");
+const sfxNo = document.getElementById("sfx-no");
+const sfxTime = document.getElementById("sfx-time");
+
+/* ================= DATA IPA ================= */
+const ipaQuestions = [
+  { q: "Alat pernapasan manusia adalah ...", o: ["Paru-paru","Jantung","Ginjal","Lambung"], a: 0 },
+  { q: "Gaya yang membuat benda jatuh ke bumi?", o: ["Gravitasi","Magnet","Listrik","Gesek"], a: 0 },
+  { q: "Fotosintesis terjadi pada bagian tumbuhan?", o: ["Daun","Akar","Batang","Bunga"], a: 0 },
+  { q: "Sumber energi terbesar di bumi?", o: ["Matahari","Air","Angin","Batu bara"], a: 0 }
+];
+
+/* ================= UTIL ================= */
+const rand = n => Math.floor(Math.random() * n) + 1;
+const shuffle = arr => arr.sort(() => Math.random() - 0.5);
+
+/* ================= SOAL MTK ================= */
+function mathQuestion() {
+  let a, b, ans, op;
+
+  if (level === "7") {
+    a = rand(20); b = rand(20);
+    ans = a + b; op = "+";
+  } 
+  else if (level === "8") {
+    a = rand(10); b = rand(3);
+    ans = a ** b; op = "pangkat";
+  } 
+  else {
+    b = rand(10); ans = rand(10);
+    a = ans + b; op = "-";
+  }
+
+  let options = [ans];
+  while (options.length < 4) {
+    let x = ans + rand(10) - 5;
+    if (x > 0 && !options.includes(x)) options.push(x);
+  }
+
+  return {
+    q: `${a} ${op} ${b}`,
+    o: shuffle(options),
+    a: ans
+  };
+}
+
+/* ================= GAME FLOW ================= */
+function startGame() {
+  name = document.getElementById("name").value.trim();
+  level = document.getElementById("level").value;
+  mode = document.getElementById("mode").value;
+
+  if (!name) return alert("Masukkan nama!");
+
+  questions = [];
+  index = score = correct = wrong = 0;
+
+  if (mode === "IPA") {
+    questions = shuffle([...ipaQuestions]).slice(0, 5);
+  } else {
+    for (let i = 0; i < 5; i++) questions.push(mathQuestion());
+  }
+
+  bgm.volume = 0.3;
+  bgm.play().catch(()=>{});
+
+  screen = "game";
+  startTimer();
+  render();
+}
+
+function startTimer() {
+  clearInterval(timer);
+  time = 10;
+
+  timer = setInterval(() => {
+    time--;
+    if (time <= 0) {
+      clearInterval(timer);
+      sfxTime.play();
+      wrong++;
+      setTimeout(nextQuestion, 500);
+    }
+    render();
+  }, 1000);
+}
+
+function answer(value) {
+  clearInterval(timer);
+
+  const correctAnswer = questions[index].a;
+  const isCorrect = mode === "IPA" ? value === correctAnswer : value === correctAnswer;
+
+  if (isCorrect) {
+    score += 20;
+    correct++;
+    sfxOk.play();
+  } else {
+    wrong++;
+    sfxNo.play();
+  }
+
+  nextQuestion();
+}
+
+function nextQuestion() {
+  index++;
+
+  if (index >= questions.length) {
+    saveScore();
+    bgm.pause();
+    screen = "result";
+  } else {
+    startTimer();
+  }
+  render();
+}
+
+function saveScore() {
+  const data = JSON.parse(localStorage.getItem("scores") || "[]");
+  data.push({ name, score });
+  localStorage.setItem("scores", JSON.stringify(data));
+}
+
+function fullscreen() {
+  document.documentElement.requestFullscreen();
+}
+
+/* ================= RENDER ================= */
+function render() {
+  const app = document.getElementById("app");
+
+  if (screen === "home") {
+    app.innerHTML = `
+      <div class="bg-white/10 p-6 rounded-3xl text-center">
+        <h1 class="text-3xl font-bold mb-4 float">🎮 Math & Science Quest</h1>
+
+        <input id="name" placeholder="Nama" class="w-full p-2 mb-3 rounded text-black">
+
+        <select id="level" class="w-full p-2 mb-3 rounded text-black">
+          <option value="7">Kelas 7</option>
+          <option value="8">Kelas 8</option>
+          <option value="9">Kelas 9</option>
+        </select>
+
+        <select id="mode" class="w-full p-2 mb-3 rounded text-black">
+          <option value="MTK">Matematika</option>
+          <option value="IPA">IPA</option>
+        </select>
+
+        <button onclick="startGame()" class="w-full bg-purple-500 p-3 rounded-xl font-bold">
+          Mulai
+        </button>
+
+        <button onclick="fullscreen()" class="mt-3 w-full bg-white/20 p-2 rounded">
+          Fullscreen 📱
+        </button>
+      </div>
+    `;
+  }
+
+  if (screen === "game") {
+    const q = questions[index];
+    app.innerHTML = `
+      <div class="bg-white/10 p-6 rounded-3xl">
+        <p>👤 ${name} | ⏱ ${time}s | Skor ${score}</p>
+
+        <div class="h-2 bg-white/20 rounded mb-4">
+          <div class="h-2 bg-yellow-400 rounded" style="width:${time * 10}%"></div>
+        </div>
+
+        <h2 class="text-3xl my-4 text-center">${q.q}</h2>
+
+        <div class="grid grid-cols-2 gap-3">
+          ${q.o.map((opt, i) => `
+            <button onclick="answer(${mode === "IPA" ? i : opt})"
+              class="bg-purple-500 p-3 rounded-xl font-bold">
+              ${opt}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  if (screen === "result") {
+    app.innerHTML = `
+      <div class="bg-white/10 p-6 rounded-3xl text-center">
+        <h2 class="text-2xl font-bold mb-2">Hasil</h2>
+        <p>Benar: ${correct} | Salah: ${wrong}</p>
+        <p class="text-4xl my-3">Skor ${score}</p>
+
+        <button onclick="screen='home';render()"
+          class="bg-purple-500 p-3 rounded-xl w-full">
+          Main Lagi
+        </button>
+      </div>
+    `;
+  }
+}
+
+render();
+</script>
+</body>
+</html>
